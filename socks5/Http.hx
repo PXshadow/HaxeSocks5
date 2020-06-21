@@ -1,22 +1,30 @@
 package socks5;
-
 import haxe.io.BytesOutput;
 import haxe.io.Input;
 import haxe.io.Output;
 
 class Http extends haxe.Http
 {
+    public static var PROXY:{host:String, port:Int, auth:{user:String, pass:String}} = null;
     public function new(url:String)
     {
         super(url);
     }
-    override function customRequest(post:Bool, api:Output, ?sock:sys.net.Socket, ?method:String) {
-        super.customRequest(post, api, sock, method);
-        //pass through
-        
+    public static function requestUrl(url:String):String {
+		var h = new Http(url);
+		var r = null;
+		h.onData = function(d) {
+			r = d;
+		}
+		h.onError = function(e) {
+			trace('e $e');
+		}
+		h.request(false);
+		return r;
     }
-    override function writeBody(body:Null<BytesOutput>, fileInput:Null<Input>, fileSize:Int, boundary:Null<String>, sock:sys.net.Socket) {
-        super.writeBody(body, fileInput, fileSize, boundary, sock);
-        //stop write untill finish pass through
+    override function customRequest(post:Bool, api:Output, ?sock:sys.net.Socket, ?method:String) {
+        if (PROXY != null) Socket.PROXY = PROXY;
+        sock = new Socket();
+        super.customRequest(post, api, sock, method);
     }
 }

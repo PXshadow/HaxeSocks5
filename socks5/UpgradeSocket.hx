@@ -1,445 +1,193 @@
 package socks5;
-
-/*
- * Copyright (C)2005-2019 Haxe Foundation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
- package ;
-import haxe.io.BytesData;
+import haxe.Exception;
+import sys.net.Host;
+import haxe.io.Bytes;
 #if cpp
-import cpp.NativeSsl;
 import cpp.NativeSocket;
+import cpp.NativeSsl;
+import cpp.Lib;
+#elseif neko
+import neko.Lib;
 #end
- import sys.ssl.Certificate;
- #if (hl || hashlink)
- import sys.ssl.Context;
- import sys.ssl.Context.Config;
- #end
- import sys.ssl.Key;
- //import sys.net.Socket.SocketHandle;
- private typedef SocketHandle = Dynamic;
- private typedef CTX = Dynamic;
- private typedef SSL = Dynamic;
- 
- private class SocketInput extends haxe.io.Input {
-    private var __s:Socket;
-    //private var __s:Dynamic;
-     public function new(s:Socket) {
-         this.__s = s;
-     }
- 
-     public override function readByte() {
-         return {
-            if (__s.secureBool)
-			{
-                __s.handshake();
-                #if (hl || hashlink)
-                @:privateAccess __s.ssl.recvChar();
-                #else
-                NativeSsl.ssl_recv_char(@:privateAccess __s.ssl);
-                #end
-			}else{
-                #if (hl || hashlink)
-                @:privateAccess __s.__s.recvChar();
-                #else
-                NativeSocket.socket_recv_char(@:privateAccess __s.__s);
-                #end
-			}
-         /*} catch (e:Dynamic) {
-             if (e == "Blocking")
-                 throw haxe.io.Error.Blocked;
-             else if (__s == null)
-                 throw haxe.io.Error.Custom(e);
-             else
-                 throw new haxe.io.Eof();
-         }*/
-        }
-     }
- 
-     public override function readBytes(buf:haxe.io.Bytes, pos:Int, len:Int):Int {
-         var r:Int;
-         if (__s == null)
-             throw "Invalid handle";
-         try {
-            if (__s.secureBool)
-			{
-                __s.handshake();
-                #if (hl || hashlink)
-                r = @:privateAccess __s.ssl.recv(buf, pos, len);
-                #else
-                r = NativeSsl.ssl_recv(@:privateAccess __s.ssl, buf.getData(), pos, len);
-                #end
-			}else{
-                //r = 1;
-                #if (hl || hashlink)
-                r = @:privateAccess __s.__s.recv(buf, pos, len);
-                #else
-                r = NativeSocket.socket_recv(@:privateAccess __s.__s,buf.getData(),pos,len);
-                #end
-			}
-         } catch (e:Dynamic) {
-             if (e == "Blocking")
-                 throw haxe.io.Error.Blocked;
-             else
-                 throw haxe.io.Error.Custom(e);
-         }
-         if (r == 0)
-             throw new haxe.io.Eof();
-         return r;
-     }
- 
-     public override function close() {
-         super.close();
-         if (__s != null)
-             __s.close();
-     }
 
- }
- 
- private class SocketOutput extends haxe.io.Output {
-     private var __s:Socket;
-     //private var __s:Dynamic;
- 
-     public function new(s:Socket) {
-         this.__s = s;
-     }
- 
-     public override function writeByte(c:Int) {
-         try {
-            if (__s.secureBool)
-			{
-                __s.handshake();
-                #if (hl || hashlink)
-                @:privateAccess var r = @:privateAccess __s.ssl.sendChar(c);
-                #else
-                NativeSsl.ssl_send_char(@:privateAccess __s.ssl, c);
-                #end
-			}else{
-                #if (hl || hashlink)
-                @:privateAccess var r = @:privateAccess __s.__s.sendChar(c);
-                #else
-                NativeSocket.socket_send_char(@:privateAccess __s.__s,c);
-                #end
-			}
-         } catch (e:Dynamic) {
-             if (e == "Blocking")
-                 throw haxe.io.Error.Blocked;
-             else
-                 throw haxe.io.Error.Custom(e);
-         }
-     }
- 
-     public override function writeBytes(buf:haxe.io.Bytes, pos:Int, len:Int):Int {
-         return try {
-            if (__s.secureBool)
-			{
-                __s.handshake();
-                #if (hl || hashlink)
-                @:privateAccess __s.ssl.send(buf, pos, len);
-                #else
-                NativeSsl.ssl_send(@:privateAccess __s.ssl, buf.getData(), pos, len);
-                #end
-			}else{
-                //return 1;
-                #if (hl || hashlink)
-                @:privateAccess __s.__s.send(buf, pos, len);
-                #else
-                NativeSocket.socket_send(@:privateAccess __s.__s, buf.getData(), pos, len);
-                #end
-			}
-         } catch (e:Dynamic) {
-             if (e == "Blocking")
-                 throw haxe.io.Error.Blocked;
-             else
-                 throw haxe.io.Error.Custom(e);
-         }
-     }
- 
-     public override function close() {
-         super.close();
-         if (__s != null)
-             __s.close();
-     }
- }
- 
- class UpgradeSocket extends sys.net.Socket {
-     public static var DEFAULT_VERIFY_CERT:Null<Bool> = true;
- 
-     public static var DEFAULT_CA:Null<Certificate>;
-     
-     #if (cpp || neko)
-     private var ssl:SSL;
-     private var ctx:CTX;   
-     #end
-     #if (hl || hashlink)
-     private var ssl:Context;
-     private var ctx:Config;
-     #end
- 
-     public var verifyCert:Int;
- 
-     private var caCert:Null<Certificate>;
- 
-     private var ownCert:Null<Certificate>;
-     private var ownKey:Null<Key>;
-     private var altSNIContexts:Null<Array<{match:String->Bool, key:Key, cert:Certificate}>>;
-     private var sniCallback:Dynamic;
-     public var handshakeDone:Bool = false;
-     public var secureBool:Bool = true;
-     private var hostname:String;
-     private override function init():Void {
-         #if (cpp || neko)
-         __s = NativeSocket.socket_new(false);
-         #elseif (hl || hashlink)
-         __s = sys.net.Socket.socket_new(false);
-         #end
-         input = new SocketInput(this);
-         output = new SocketOutput(this);
+private class SocketInput extends haxe.io.Input {
+	private var socket:UpgradeSocket;
 
-         if (DEFAULT_VERIFY_CERT && DEFAULT_CA == null) {
-             try {
-                 DEFAULT_CA = Certificate.loadDefaults();
-             } catch (e:Dynamic) {}
-         }
-         //verifyCert = 0;
-         verifyCert = 1;
-         caCert = DEFAULT_CA;
-     }
-     public function unsecure()
-    {
-        handshakeDone = true;
-        secureBool = false;
-    }
-    public function secure()
-    {
-        //NativeSsl.ssl_set_socket(ssl, __s);
-        #if (neko || cpp)
-        NativeSsl.ssl_set_hostname(ssl, #if neko untyped hostname.__s #else hostname #end);
-        #elseif  (hl || hashlink)
-        ssl.setHostname(@:privateAccess hostname.toUtf8());
-        #end
-        handshakeDone = false;
-        secureBool = true;
-        setBlocking(true);
-        handshake();
-        setBlocking(false);
-    }
-     public override function connect(host:sys.net.Host, port:Int):Void {
+	public function new(s:UpgradeSocket) {
+		this.socket = s;
+	}
+
+	public override function readByte() {
+		return {
+			if (socket.upgraded)
+			{
+				socket.handshake();
+				#if (cpp || neko) NativeSsl.ssl_recv_char(@:privateAccess socket.ssl); #end
+			}else{
+				#if (cpp || neko) NativeSsl.ssl_recv_char(@:privateAccess socket.__s); #end
+			}
+		};
+	}
+
+	public override function readBytes(buf:haxe.io.Bytes, pos:Int, len:Int):Int {
+		var r:Int;
+		if (socket == null)
+			throw "Invalid handle";
 		try {
-            #if (cpp || neko)
-            ctx = buildSSLContext(false);
-            ssl = NativeSsl.ssl_new(ctx);
-            
-            NativeSsl.ssl_set_socket(ssl, __s);
-            NativeSocket.socket_connect(__s, host.ip, port);
-            #end
-
-            #if (hl || hashlink)
-            ctx = buildConfig(false);
-            ssl = new Context(ctx);
-            ssl.setSocket(__s);
-            sys.net.Socket.socket_connect(__s,host.ip,port);
-            #end
-            handshake();
-		} catch (s:String) {
-		/*	if (s == "std@socket_connect")
-				throw "Failed to connect on " + host.host + ":" + port;
-            else
-                #if neko 
-                neko.Lib.rethrow(s);
-                #elseif cpp
-                cpp.Lib.rethrow(s);
-                #end
+			if (socket.upgraded)
+			{
+				socket.handshake();
+				#if (cpp || neko) r = NativeSsl.ssl_recv(@:privateAccess socket.ssl,buf.getData(),pos,len); #end
+			}else{
+				#if (cpp || neko) r = NativeSocket.socket_recv(@:privateAccess socket.__s,buf.getData(),pos,len); #end
+			}
 		} catch (e:Dynamic) {
-			#if neko 
-            neko.Lib.rethrow(e);
-            #elseif cpp
-            cpp.Lib.rethrow(e);
-            #end*/
+			if (e == "Blocking")
+				throw haxe.io.Error.Blocked;
+			else
+				throw haxe.io.Error.Custom(e);
+		}
+		if (r == 0)
+			throw new haxe.io.Eof();
+		return r;
+	}
 
+	public override function close() {
+		super.close();
+		if (socket != null)
+			socket.close();
+	}
+}
+
+private class SocketOutput extends haxe.io.Output {
+	private var socket:UpgradeSocket;
+
+	public function new(s:UpgradeSocket) {
+		this.socket = s;
+	}
+
+	public override function writeByte(c:Int) {
+		try {
+			if (socket.upgraded)
+			{
+				socket.handshake();
+				#if (cpp || neko) NativeSsl.ssl_send_char(@:privateAccess socket.ssl, c); #end
+			}else{
+				#if (cpp || neko) NativeSocket.socket_send_char(@:privateAccess socket.__s,c); #end
+			}
+		} catch (e:Dynamic) {
+			if (e == "Blocking")
+				throw haxe.io.Error.Blocked;
+			else
+				throw haxe.io.Error.Custom(e);
 		}
 	}
- 
-     public function handshake():Void {
-         if (!handshakeDone) {
-             try {
-                 #if (hl || hashlink)
-                var r = ssl.handshake();
-                if (r == 0)
-                    handshakeDone = true;
-                #elseif (neko || cpp)
-                NativeSsl.ssl_handshake(ssl);
-                 handshakeDone = true;
-                 #end
-             } catch (e:Dynamic) {
-                 /*if (e == "Blocking")
-                     throw haxe.io.Error.Blocked;
-                 else
-                    #if neko
-                     neko.Lib.rethrow(e);
-                    #elseif cpp
-                    cpp.Lib.rethrow(e);
-                    #end*/
-            }
-         }
-     }
- 
-     public function setCA(cert:Certificate):Void {
-         caCert = cert;
-     }
- 
-     /*public function setHostname(name:String):Void {
-         hostname = name;
-     }*/
- 
-     public function setCertificate(cert:Certificate, key:Key):Void {
-         ownCert = cert;
-         ownKey = key;
-     }
-     #if !(hashlink || hl)
-     public override function read():String {
-         #if neko
-         var b:String;
-         #elseif cpp
-         var b:BytesData;
-         #end
-         if (secureBool)
-         {
-            handshake();
-            b = NativeSsl.ssl_read(ssl);
-         }else{
-            b = NativeSocket.socket_read(__s);
-         }
-         if (b == null)
-             return "";
-         #if neko
-         return new String(cast b);
-         #elseif cpp
-         return haxe.io.Bytes.ofData(b).toString();
-         #end
-     }
-     #end
-     #if !(hl || hashlink)
-     public override function write(content:String):Void {
-         if (secureBool)
-         {
-            handshake();
-            NativeSsl.ssl_write(ssl, #if neko untyped content.__s #elseif (cpp || hl) haxe.io.Bytes.ofString(content).getData() #end);
-         }else{
-            NativeSocket.socket_write(__s, #if neko untyped content.__s #elseif cpp haxe.io.Bytes.ofString(content).getData() #end);
-         }
-     }
-     #end
- 
-     public override function close():Void {
-         trace("CLOSE!");
-         #if (cpp || neko)
-         if (ssl != null)
-            NativeSsl.ssl_close(ssl);
-         if (ctx != null)
-            NativeSsl.conf_close(ctx);
-         #elseif (hl || hashlink)
-         if (ssl != null)
-			ssl.close();
-		if (ctx != null)
-			ctx.close();
-         #end
-         if (altSNIContexts != null)
-             sniCallback = null;
-         #if (neko || cpp)
-         NativeSocket.socket_close(__s);
-         #elseif (hl || hashlink)
-         sys.net.Socket.socket_close(__s);
-         #end
-         var input:SocketInput = cast input;
-         var output:SocketOutput = cast output;
-         @:privateAccess input.__s = output.__s = null;
-         input.close();
-         output.close();
-     }
-     #if (neko || cpp)
-     private function buildSSLContext(server:Bool):CTX {
-         var ctx:CTX = NativeSsl.conf_new(server);
- 
-         if (ownCert != null && ownKey != null)
-            NativeSsl.conf_set_cert(ctx, @:privateAccess ownCert.__x, @:privateAccess ownKey.__k);
- 
-         if (altSNIContexts != null) {
-             sniCallback = function(servername) {
-                 var servername = new String(cast servername);
-                 for (c in altSNIContexts) {
-                     if (c.match(servername))
-                         return @:privateAccess {
-                             key:c.key.__k, cert:c.cert.__x
-                         };
-                 }
-                 if (ownKey != null && ownCert != null)
-                     return @:privateAccess {
-                         key:ownKey.__k, cert:ownCert.__x
-                     };
-                 return null;
-             }
-             NativeSsl.conf_set_servername_callback(ctx, sniCallback);
-         }
- 
-         if (caCert != null)
-            NativeSsl.conf_set_ca(ctx, caCert == null ? null : @:privateAccess caCert.__x);
-        
-        //NativeSsl.conf_set_verify(ctx, verifyCert);
- 
-         return ctx;
-     }
-     #end
 
-     #if (hl || hashlink)
-     private function buildConfig(server:Bool):Config {
-		var conf = new Config(server);
-
-		if (ownCert != null && ownKey != null)
-			conf.setCert(@:privateAccess ownCert.__x, @:privateAccess ownKey.__k);
-
-		if (altSNIContexts != null) {
-			sniCallback = function(servername:hl.Bytes):SNICbResult {
-				var servername = @:privateAccess String.fromUTF8(servername);
-				for (c in altSNIContexts) {
-					if (c.match(servername))
-						return new SNICbResult(c.cert, c.key);
-				}
-				if (ownKey != null && ownCert != null)
-					return new SNICbResult(ownCert, ownKey);
-				return null;
+	public override function writeBytes(buf:haxe.io.Bytes, pos:Int, len:Int):Int {
+		return try {
+			if (socket.upgraded)
+			{
+				socket.handshake();
+				#if (cpp || neko) return NativeSsl.ssl_send(@:privateAccess socket.ssl, buf.getData(), pos, len); #end
+			}else{
+				#if (cpp || neko) return NativeSocket.socket_send(@:privateAccess socket.__s, buf.getData(), pos, len); #end
 			}
-			conf.setServernameCallback(sniCallback);
+		}catch (e:Dynamic) {
+			if (e == "Blocking")
+				throw haxe.io.Error.Blocked;
+			else
+				throw haxe.io.Error.Custom(e);
 		}
+	}
 
-		if (caCert != null)
-			conf.setCa(caCert == null ? null : @:privateAccess caCert.__x);
-        //conf.setVerify(if (verifyCert) 1 else if (verifyCert == null) 2 else 0);
-        conf.setVerify(0);
+	public override function close() {
+		super.close();
+		if (socket != null)
+			socket.close();
+	}
+}
+/**
+    std/eval/_std/sys/ssl/Socket.hx
+    std/cpp/_std/sys/ssl/Socket.hx
+    std/neko/_std/sys/ssl/Socket.hx
+    std/hl/_std/sys/ssl/Socket.hx
 
-		return conf;
-    }
-    #end
- }
+    std/java/_std/sys/ssl/Socket.hx
+    std/jvm/_std/sys/ssl/Socket.hx
 
+    std/cs/_std/sys/ssl/Socket.hx
+
+    std/lua/_std/sys/ssl/Socket.hx
+    std/python/_std/sys/ssl/Socket.hx
+**/
+class UpgradeSocket extends sys.ssl.Socket
+{
+	public var upgraded:Bool = false;
+	var _host:Host;
+    public function new()
+    {
+        super();
+	}
+	#if eval
+    override function init(socket:eval.vm.NativeSocket) {
+        super.init(socket);
+        //override
+        input = new SocketInput(this);
+		output = new SocketOutput(this);
+	}
+	#end
+    public function upgrade()
+    {
+		handshakeDone = false;
+		if (hostname == null)
+			hostname = _host.host;
+		#if (neko || cpp) NativeSsl.ssl_set_hostname(ssl, hostname); #end
+		#if (hl || hashlink) ssl.setHostname(@:privateAccess hostname.toUtf8()); #end
+		handshake();
+	}
+	override function connect(host:Host, port:Int) {
+		_host = host;
+		try {
+			#if cpp conf #else ctx #end = buildSSLConfig(false);
+			ssl = NativeSsl.ssl_new(#if cpp conf #else ctx #end);
+			handshakeDone = true; //handshake finished in order to allow upgrade
+			NativeSsl.ssl_set_socket(ssl, __s);
+			NativeSocket.socket_connect(__s, host.ip, port);
+			handshake();
+		} catch (s:String) {
+			if (s == "Invalid socket handle")
+				throw "Failed to connect on " + host.host + ":" + port;
+			else if (s == "Blocking") {
+				// Do nothing, this is not a real error, it simply indicates
+				// that a non-blocking connect is in progress
+				}else
+					Lib.rethrow(s);
+		} catch (e:Dynamic) {
+			Lib.rethrow(e);
+		}
+	}
+	#if neko
+	public function buildSSLConfig(server:Bool)
+	{
+		return buildSSLContext(server);
+	}
+	#end
+	override function read():String {
+		#if neko var b:String; #end
+		#if cpp var b:BytesData; #end
+		if (upgraded)
+		{
+			handshake();
+			#if (cpp || neko) b = NativeSsl.ssl_read(ssl); #end
+		}else{
+			#if (cpp || neko) b = NativeSocket.socket_read(__s); #end
+		}
+		if (b == null)
+			return "";
+		#if neko return new String(cast b); #end
+		#if cpp return haxe.io.Bytes.ofData(b).toString(); #end
+	}
+}
 #if neko
 private class NativeSsl
 {

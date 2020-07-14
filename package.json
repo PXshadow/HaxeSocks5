@@ -1,0 +1,26 @@
+{
+  "name": "haxesocks5",
+  "version": "1.0.0",
+  "description": "Haxe Socks5 proxy",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "simple-socks": "^2.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PXshadow/HaxeSocks5.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PXshadow/HaxeSocks5/issues"
+  },
+  "homepage": "https://github.com/PXshadow/HaxeSocks5#readme"
+}

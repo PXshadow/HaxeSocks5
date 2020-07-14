@@ -1,3 +1,2 @@
 set.hxml
 -neko test.n
-#-cmd neko test.n

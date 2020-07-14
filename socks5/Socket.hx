@@ -1,6 +1,7 @@
 package socks5;
 
 import sys.net.Host;
+import socks5._internal.UpgradeSocket;
 
 class Socket extends UpgradeSocket
 {
@@ -20,7 +21,6 @@ class Socket extends UpgradeSocket
             proxy = new Proxy(this,host.host,port);
             trace("start proxy request");
             if (!proxy.request()) return;
-            if (secure) upgrade();
         }else{
             super.connect(host, port);
         }

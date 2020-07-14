@@ -2,6 +2,7 @@ package socks5;
 
 import haxe.io.Bytes;
 import sys.net.Socket;
+import sys.net.Host;
 
 class Proxy
 {
@@ -14,13 +15,12 @@ class Proxy
         this.host = host;
         this.port = port;
     }
-    public function request()
+    public function request():Bool
     {
         authSend();
         if (!authResponse()) return false;
         reqSend();
         if (!reqResponse()) return false;
-        trace("request sucess");
         return true;
     }
     private function reqSend()
@@ -31,10 +31,10 @@ class Proxy
         bytes.set(2,0x00); //Reserved
         bytes.set(3,0x01); //address type of following address (ipv4 address,domainname,ipv6 address)
 
-        var i = ipv4(bytes,4,host);
+        var i = ipv4(bytes,4,new Host(host).toString());
 
-        bytes.set(i++,443 >> 8);
-        bytes.set(i++,443 & 0xff);
+        bytes.set(i++,port >> 8);
+        bytes.set(i++,port & 0xff);
         socket.output.write(bytes);
     }
     private function reqResponse():Bool
@@ -44,7 +44,7 @@ class Proxy
         {
             case 0x00:
             //succeeded
-            socket.input.read(8);
+            socket.input.readBytes(Bytes.alloc(8),0,8);
             return true;
             case 0x01: trace("general SOCKS server failure");
             case 0x02: trace("connection not allowed by ruleset");

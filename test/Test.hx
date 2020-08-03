@@ -11,6 +11,8 @@ class Test {
 		new Test();
 	}
 	var server:ThreadServer;
+	var tests:Int = 0;
+	var tests_sucessful:Int = 0;
 	public function new()
 	{
 		var clean:Bool = true;
@@ -23,21 +25,24 @@ class Test {
 			//Thread.create(function() {SSLServerExample.main();});
 			ThreadServer.createSSLServer();
 			socket(true,false);
-		}) ? trace("next") : return;
+		});
 		test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
 		{
 			ThreadServer.createServer();
 			socket(false,true);
-		}) ? trace("next") : return;
+		});
 		test("ssl[haxe] -> proxy[nodejs] -> ssl[haxe]",function()
 		{
 			ThreadServer.createSSLServer();
 			socket(true,true);
-		}) ? trace("next") : return;
+		});
 		nss.close();
+		trace('tests: $tests_sucessful/$tests sucessful');
+		if (tests != tests_sucessful) throw "a test failed";
 	}
 	private function test(string:String,func:Void->Void):Bool
 	{
+		tests++;
 		var line = [for (i in 0...string.length) "_"].join("");
 		trace(line);
 		trace(string);
@@ -49,6 +54,7 @@ class Test {
 			trace(e.details());
 			return false;
 		}
+		tests_sucessful++;
 		return true;
 	}
 	private function socket(secure:Bool=false,proxy:Bool=true)

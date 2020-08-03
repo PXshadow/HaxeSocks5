@@ -19,5 +19,7 @@ jobs:
       - run: npm install
       - name: list dir
         run: ls
-      - name: Run tests
+      - name: build test
         run: haxe test.hxml
+      - name: run tests
+        run: neko test.n

@@ -15,31 +15,32 @@ class Test {
 	{
 		//haxe.Log.trace = function(v, ?infos) { Sys.println(v);}
 		#if !(target.threaded) throw "threading required for test"; #end
-		test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
+		/*test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
 		{
 			ThreadServer.createServer();
 			socket(false,true);
-		});
-		/*test("ssl[haxe] -> ssl[haxe]",function()
+		}) ? trace("next") : return;*/
+		test("ssl[haxe] -> ssl[haxe]",function()
 		{
+			//Thread.create(function() {SSLServerExample.main();});
 			ThreadServer.createSSLServer();
 			socket(true,false);
-		});*/
+		}) ? trace("next") : return;
 		test("ssl[haxe] -> proxy[nodejs] -> ssl[haxe]",function()
 		{
 			ThreadServer.createSSLServer();
 			socket(true,true);
-		});
+		}) ? trace("next") : return;
 		/*test("http[haxe] -> proxy[nodejs] -> http[external]",function()
 		{
 
-		});
+		}) ? trace("next") : return;
 		test("https[haxe] -> proxy[nodejs] -> https[external]",function()
 		{
 
-		});*/
+		}) ? trace("next") : return;*/
 	}
-	private function test(string:String,func:Void->Void)
+	private function test(string:String,func:Void->Void):Bool
 	{
 		var line = [for (i in 0...string.length) "_"].join("");
 		trace(line);
@@ -50,7 +51,9 @@ class Test {
 		}catch(e:Exception)
 		{
 			trace(e.details());
+			return false;
 		}
+		return true;
 	}
 	private function socket(secure:Bool=false,proxy:Bool=true)
 	{
@@ -59,17 +62,18 @@ class Test {
 		socket.setTimeout(6);
 		socket.setHostname("example.com");
 		socks5.Socket.PROXY = null;
-		if (proxy) socks5.Socket.PROXY = {host: "127.0.0.1",port: 1080,auth: null};
+		if (proxy) socks5.Socket.PROXY = {host: "localhost",port: 1080,auth: null};
 		trace("trying to connect");
-		socket.connect(new Host("127.0.0.1"),8000);
+		socket.connect(new Host("localhost"),8000);
 		if (secure) 
 		{
 			socket.verifyCert = false;
 			socket.upgrade();
 		}
-		socket.setBlocking(false);
+		//socket.setBlocking(false);
 		trace("connected");
-		socket.output.writeString("hello world\n");
+		//socket.output.writeString("hello world\r\n");
+		socket.write("hello world\r\n");
 		trace("sent message");
 		Sys.sleep(2); //wait for message
 		var message = socket.input.readString(11);

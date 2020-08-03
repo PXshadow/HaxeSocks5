@@ -1,7 +1,10 @@
 package socks5._internal;
+import haxe.io.Error;
+import sys.net.Socket.SocketHandle;
 import haxe.Exception;
 import sys.net.Host;
 import haxe.io.Bytes;
+import haxe.io.BytesData;
 #if cpp
 import cpp.NativeSocket;
 import cpp.NativeSsl;
@@ -32,7 +35,7 @@ private class SocketInput extends haxe.io.Input {
 	}
 
 	public override function readBytes(buf:haxe.io.Bytes, pos:Int, len:Int):Int {
-		var r:Int;
+		var r:Int = 0;
 		if (socket == null)
 			throw "Invalid handle";
 		try {
@@ -40,14 +43,16 @@ private class SocketInput extends haxe.io.Input {
 			{
 				socket.handshake();
 				#if (cpp || neko) r = NativeSsl.ssl_recv(@:privateAccess socket.ssl,buf.getData(),pos,len); #end
+				#if (hl || hashlink) r = @:privateAccess socket.ssl.recv(buf,pos,len); #end
 			}else{
 				#if (cpp || neko) r = NativeSocket.socket_recv(@:privateAccess socket.__s,buf.getData(),pos,len); #end
+				#if (hl || hashlink) r = socket_recv(@:privateAccess socket.__s, buf.getData().bytes, pos, len); #end
 			}
 		} catch (e:Dynamic) {
 			if (e == "Blocking")
-				throw haxe.io.Error.Blocked;
+				throw Blocked;
 			else
-				throw haxe.io.Error.Custom(e);
+				throw Custom(e);
 		}
 		if (r == 0)
 			throw new haxe.io.Eof();
@@ -59,6 +64,15 @@ private class SocketInput extends haxe.io.Input {
 		if (socket != null)
 			socket.close();
 	}
+	#if (hl || hashlink)
+	@:hlNative("std", "socket_recv") static function socket_recv(s:SocketHandle, bytes:hl.Bytes, pos:Int, len:Int):Int {
+		return 0;
+	}
+
+	@:hlNative("std", "socket_recv_char") static function socket_recv_char(s:SocketHandle):Int {
+		return 0;
+	}
+	#end
 }
 
 private class SocketOutput extends haxe.io.Output {
@@ -78,9 +92,9 @@ private class SocketOutput extends haxe.io.Output {
 			}
 		} catch (e:Dynamic) {
 			if (e == "Blocking")
-				throw haxe.io.Error.Blocked;
+				throw Blocked;
 			else
-				throw haxe.io.Error.Custom(e);
+				throw Custom(e);
 		}
 	}
 
@@ -90,16 +104,35 @@ private class SocketOutput extends haxe.io.Output {
 			{
 				socket.handshake();
 				#if (cpp || neko) NativeSsl.ssl_send(@:privateAccess socket.ssl, buf.getData(), pos, len); #end
+				#if (hl || hashlink)
+				var r = @:privateAccess socket.ssl.send(buf, pos, len);
+				if (r == -1)
+					throw Blocked;
+				else if (r < 0)
+					throw new haxe.io.Eof();
+				return r;
+				#end
 				//0;
 			}else{
 				#if (cpp || neko) NativeSocket.socket_send(@:privateAccess socket.__s, buf.getData(), pos, len); #end
+				#if (hl || hashlink)
+				if (pos < 0 || len < 0 || pos + len > buf.length)
+					throw OutsideBounds;
+				var n = socket_send(@:privateAccess socket.__s, buf.getData().bytes, pos, len);
+				if (n < 0) {
+					if (n == -1)
+						throw Blocked;
+					throw new haxe.io.Eof();
+				}
+				return n;
+				#end
 				//0;
 			}
 		}catch (e:Dynamic) {
 			if (e == "Blocking")
-				throw haxe.io.Error.Blocked;
+				throw Blocked;
 			else
-				throw haxe.io.Error.Custom(e);
+				throw Custom(e);
 		}
 	}
 
@@ -108,6 +141,15 @@ private class SocketOutput extends haxe.io.Output {
 		if (socket != null)
 			socket.close();
 	}
+	#if (hl || hashlink)
+	@:hlNative("std", "socket_send_char") static function socket_send_char(s:SocketHandle, c:Int):Int {
+		return 0;
+	}
+
+	@:hlNative("std", "socket_send") static function socket_send(s:SocketHandle, bytes:hl.Bytes, pos:Int, len:Int):Int {
+		return 0;
+	}
+	#end
 }
 /**
     std/eval/_std/sys/ssl/Socket.hx
@@ -126,10 +168,13 @@ private class SocketOutput extends haxe.io.Output {
 class UpgradeSocket extends sys.ssl.Socket
 {
 	public var upgraded:Bool = false;
+	#if !neko var ctx:Dynamic; #end
 	override function init() {
 		super.init();
+		#if !neko ctx = conf; #end
 		input = new SocketInput(this);
 		output = new SocketOutput(this);
+		verifyCert = false;
 	}
     public function upgrade()
     {
@@ -139,7 +184,7 @@ class UpgradeSocket extends sys.ssl.Socket
 		trace('host $hostname');
 		#if (neko || cpp) NativeSsl.ssl_set_hostname(ssl, #if neko untyped hostname.__s #else hostname #end); #end
 		#if (hl || hashlink) ssl.setHostname(@:privateAccess hostname.toUtf8()); #end
-		setBlocking(true);
+		//setBlocking(true);
 		handshake();
 	}
 	public function downgrade()
@@ -152,34 +197,30 @@ class UpgradeSocket extends sys.ssl.Socket
 	}
 	override function connect(host:Host, port:Int) {
 		try {
-			ctx = buildSSLContext(false);
+			ctx = buildSSLConfig(false);
+			handshakeDone = true; //turns into upgrade
+			#if (neko || cpp)
 			ssl = NativeSsl.ssl_new(ctx);
 			NativeSsl.ssl_set_socket(ssl, __s);
-			handshakeDone = true; //turns into upgrade
-			/*if (hostname == null)
-				hostname = host.host;
-			if (hostname != null)
-				NativeSsl.ssl_set_hostname(ssl, untyped hostname.__s);*/
 			NativeSocket.socket_connect(__s, host.ip, port);
-		} catch (s:String) {
-			if (s == "std@socket_connect")
-				throw "Failed to connect on " + host.host + ":" + port;
-			else if (s == "Blocking") {
-				// Do nothing, this is not a real error, it simply indicates
-				// that a non-blocking connect is in progress
-			}else
-				Lib.rethrow(s);
-		} catch (e:Dynamic) {
-			Lib.rethrow(e);
-		}
-
+			} catch (s:String) {
+				if (s == "std@socket_connect")
+					throw "Failed to connect on " + host.host + ":" + port;
+				else if (s == "Blocking") {
+					// Do nothing, this is not a real error, it simply indicates
+					// that a non-blocking connect is in progress
+				}else
+					Lib.rethrow(s);
+			} catch (e:Dynamic) {
+				Lib.rethrow(e);
+			}
+			#elseif hl
+			}
+			#end
 	}
-	#if neko
-	public function buildSSLConfig(server:Bool)
-	{
-		return buildSSLContext(server);
-	}
-	#end
+	#if neko public function buildSSLConfig(server:Bool) {return buildSSLContext(server);}#end
+	#if (hl || hashlink) public function buildSSLConfig(server:Bool) {return buildConfig(server);}#end
+	#if !hl
 	override function read():String {
 		#if neko var b:String; #end
 		#if cpp var b:BytesData; #end
@@ -205,12 +246,39 @@ class UpgradeSocket extends sys.ssl.Socket
 		   NativeSocket.socket_write(__s, #if neko untyped content.__s #else haxe.io.Bytes.ofString(content).getData() #end);
 		}
 	}
+	#end
 	override function close() {
 		if (upgraded)
 		{
-			super.close();
-		}else{
+			#if (neko || cpp)
+			if (ssl != null)
+				NativeSsl.ssl_close(ssl);
+			if (ctx != null)
+				NativeSsl.conf_close(ctx);
 			NativeSocket.socket_close(__s);
+			var input:SocketInput = cast input;
+			var output:SocketOutput = cast output;
+			@:privateAccess input.socket = output.socket = null;
+			input.close();
+			output.close();
+			#end
+		}else{
+			#if (neko || cpp)
+			NativeSocket.socket_close(__s);
+			#elseif hl
+			if (ssl != null)
+				ssl.close();
+			if (conf != null)
+				conf.close();
+			if (altSNIContexts != null)
+				sniCallback = null;
+			sys.net.Socket.socket_close(__s);
+			var input:SocketInput = cast input;
+			var output:SocketOutput = cast output;
+			@:privateAccess input.socket = output.socket = null;
+			input.close();
+			output.close();
+			#end
 		}
 	}
 }

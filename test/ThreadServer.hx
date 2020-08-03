@@ -18,27 +18,32 @@ class ThreadServer
         socket.setCertificate(cert,sys.ssl.Key.loadFile("server/rootkey.pem"));
         socket.setHostname("example.com");
         socket.verifyCert = false;
-        return new ThreadServer(socket);
+        return new ThreadServer(socket,true);
     }
-    private function new(socket:Socket)
+    private function new(socket:Socket,handshake:Bool=false)
     {
         Thread.create(function()
         {
-            socket.bind(new Host("0.0.0.0"),8000);
-            socket.setTimeout(4);
-            socket.listen(1);
-            trace("waiting for connection...");
-            var client = socket.accept();
-            client.setBlocking(false);
-            client.setFastSend(true);
-            trace("socket accepted");
-            Sys.sleep(1); //wait for message
-            var message = client.input.readLine();
-            trace('server read message |$message|');
-            client.output.writeString('$message\r\n');
-            trace("server finished");
-            Sys.sleep(1);
-            socket.close();
+            try {
+                socket.bind(new Host("0.0.0.0"),8000);
+                socket.setTimeout(4);
+                socket.listen(1);
+                trace("waiting for connection...");
+                var client = socket.accept();
+                //client.setBlocking(false);
+                if (handshake) cast (client,sys.ssl.Socket).handshake();
+                trace("socket accepted");
+                Sys.sleep(1); //wait for message
+                var message = client.input.readLine();
+                trace('server read message |$message|');
+                client.output.writeString('$message\n');
+                trace("server finished");
+                Sys.sleep(1);
+                socket.close();
+            }catch(e:Exception)
+            {
+                trace("server error: " + e.details());
+            }
         });
     }
 }

@@ -25,7 +25,7 @@ class Test {
 			ThreadServer.createSSLServer();
 			socket(true,false);
 		});
-		test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
+		/*test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
 		{
 			ThreadServer.createServer();
 			socket(false,true);
@@ -34,7 +34,7 @@ class Test {
 		{
 			ThreadServer.createSSLServer();
 			socket(true,true);
-		});
+		});*/
 		trace('tests: $tests_sucessful/$tests sucessful');
 		if (tests != tests_sucessful) throw "a test failed";
 	}

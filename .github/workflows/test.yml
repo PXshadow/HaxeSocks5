@@ -16,8 +16,6 @@ jobs:
         with:
           haxe-version: ${{ matrix.haxe }}
       - run: haxe -version
-      - run: npm install
-      - run: node node_modules/simple-socks/examples/createServer
       - name: list dir
         run: ls
       - name: build test

@@ -1,0 +1,23 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest,windows-latest]
+        haxe: [4.0.5]
+      fail-fast: true
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: ${{ matrix.haxe }}
+      - run: haxe -version
+      - run: npm install
+      - name: list dir
+        run: ls
+      - name: Run tests
+        run: haxe test.hxml

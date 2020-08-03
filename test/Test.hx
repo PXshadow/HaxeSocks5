@@ -13,32 +13,28 @@ class Test {
 	var server:ThreadServer;
 	public function new()
 	{
-		//haxe.Log.trace = function(v, ?infos) { Sys.println(v);}
+		var clean:Bool = true;
+		if (clean) haxe.Log.trace = function(v, ?infos) { Sys.println(v);}
 		#if !(target.threaded) throw "threading required for test"; #end
-		/*test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
-		{
-			ThreadServer.createServer();
-			socket(false,true);
-		}) ? trace("next") : return;*/
+		trace("Starting node proxy server on port 1080");
+		var nss = new Process("node node_modules/simple-socks/examples/createServer");
 		test("ssl[haxe] -> ssl[haxe]",function()
 		{
 			//Thread.create(function() {SSLServerExample.main();});
 			ThreadServer.createSSLServer();
 			socket(true,false);
 		}) ? trace("next") : return;
+		test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
+		{
+			ThreadServer.createServer();
+			socket(false,true);
+		}) ? trace("next") : return;
 		test("ssl[haxe] -> proxy[nodejs] -> ssl[haxe]",function()
 		{
 			ThreadServer.createSSLServer();
 			socket(true,true);
 		}) ? trace("next") : return;
-		/*test("http[haxe] -> proxy[nodejs] -> http[external]",function()
-		{
-
-		}) ? trace("next") : return;
-		test("https[haxe] -> proxy[nodejs] -> https[external]",function()
-		{
-
-		}) ? trace("next") : return;*/
+		nss.close();
 	}
 	private function test(string:String,func:Void->Void):Bool
 	{

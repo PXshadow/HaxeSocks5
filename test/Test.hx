@@ -19,7 +19,6 @@ class Test {
 		if (clean) haxe.Log.trace = function(v, ?infos) { Sys.println(v);}
 		#if !(target.threaded) throw "threading required for test"; #end
 		trace("Starting node proxy server on port 1080");
-		var nss = new Process("node node_modules/simple-socks/examples/createServer");
 		test("ssl[haxe] -> ssl[haxe]",function()
 		{
 			//Thread.create(function() {SSLServerExample.main();});
@@ -36,7 +35,6 @@ class Test {
 			ThreadServer.createSSLServer();
 			socket(true,true);
 		});
-		nss.close();
 		trace('tests: $tests_sucessful/$tests sucessful');
 		if (tests != tests_sucessful) throw "a test failed";
 	}
@@ -51,7 +49,7 @@ class Test {
 			func();
 		}catch(e:Exception)
 		{
-			trace(e.details());
+			throw(e.details());
 			return false;
 		}
 		tests_sucessful++;
@@ -77,7 +75,7 @@ class Test {
 		//socket.output.writeString("hello world\r\n");
 		socket.write("hello world\r\n");
 		trace("sent message");
-		Sys.sleep(2); //wait for message
+		Sys.sleep(2.5); //wait for message
 		var message = socket.input.readString(11);
 		trace('recieved back message |$message|');
 		if (message == "hello world")

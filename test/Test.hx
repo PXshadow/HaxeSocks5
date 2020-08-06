@@ -1,3 +1,4 @@
+import socks5.ProxyServer;
 import haxe.Exception;
 import sys.thread.Thread;
 import sys.io.Process;
@@ -25,16 +26,17 @@ class Test {
 			ThreadServer.createSSLServer();
 			socket(true,false);
 		});
-		/*test("[haxe] -> proxy[nodejs] -> tcp[haxe]",function()
+		test("socket -> proxy -> tcp",function()
 		{
 			ThreadServer.createServer();
+			ThreadProxyServer.create(false);
 			socket(false,true);
 		});
-		test("ssl[haxe] -> proxy[nodejs] -> ssl[haxe]",function()
+		test("ssl_socket -> proxy -> ssl",function()
 		{
 			ThreadServer.createSSLServer();
 			socket(true,true);
-		});*/
+		});
 		trace('tests: $tests_sucessful/$tests sucessful');
 		if (tests != tests_sucessful) throw "a test failed";
 	}
@@ -62,7 +64,7 @@ class Test {
 		socket.setTimeout(6);
 		socket.setHostname("example.com");
 		socks5.Socket.PROXY = null;
-		if (proxy) socks5.Socket.PROXY = {host: "localhost",port: 1080,auth: null};
+		if (proxy) socks5.Socket.PROXY = {host: "localhost",port: 8005,auth: null};
 		trace("trying to connect");
 		socket.connect(new Host("localhost"),8000);
 		if (secure) 

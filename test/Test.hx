@@ -1,5 +1,4 @@
 import socks5.ProxyServer;
-import haxe.Exception;
 import sys.thread.Thread;
 import sys.io.Process;
 import sys.net.Host;
@@ -29,14 +28,14 @@ class Test {
 		test("socket -> proxy -> tcp",function()
 		{
 			ThreadServer.createServer();
-			ThreadProxyServer.create(false);
+			ThreadProxyServer.create(false,false);
 			socket(false,true);
 		});
-		test("ssl_socket -> proxy -> ssl",function()
+		/*test("ssl_socket -> proxy -> ssl",function()
 		{
 			ThreadServer.createSSLServer();
 			socket(true,true);
-		});
+		});*/
 		trace('tests: $tests_sucessful/$tests sucessful');
 		if (tests != tests_sucessful) throw "a test failed";
 	}
@@ -49,9 +48,9 @@ class Test {
 		trace(line);
 		try {
 			func();
-		}catch(e:Exception)
+		}catch(e:Dynamic)
 		{
-			throw(e.details());
+			throw e;
 			return false;
 		}
 		tests_sucessful++;

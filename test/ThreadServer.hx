@@ -1,4 +1,4 @@
-import haxe.Exception;
+
 import haxe.Timer;
 import sys.thread.Thread;
 import sys.net.Socket;
@@ -40,9 +40,9 @@ class ThreadServer
                 trace("server finished");
                 Sys.sleep(1);
                 socket.close();
-            }catch(e:Exception)
+            }catch(e:Dynamic)
             {
-                trace("server error: " + e.details());
+                trace("server error: " + e);
             }
         });
     }

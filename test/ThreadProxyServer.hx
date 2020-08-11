@@ -3,11 +3,11 @@ import sys.thread.Thread;
 
 class ThreadProxyServer
 {
-    public static function create(secure:Bool)
+    public static function create(secureStart:Bool=false,secureEnd:Bool=false)
     {
         Thread.create(function()
         {
-            new ProxyServer("0.0.0.0",8005,secure).listen();
+            new ProxyServer("0.0.0.0",8005,secureStart,secureEnd).listen();
         });
     }
 }

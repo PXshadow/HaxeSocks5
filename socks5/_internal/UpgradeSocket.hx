@@ -1,7 +1,6 @@
 package socks5._internal;
 import haxe.io.Error;
 import sys.net.Socket.SocketHandle;
-import haxe.Exception;
 import sys.net.Host;
 import haxe.io.Bytes;
 import haxe.io.BytesData;

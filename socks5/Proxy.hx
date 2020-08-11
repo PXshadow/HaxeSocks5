@@ -17,10 +17,15 @@ class Proxy
     }
     public function request():Bool
     {
+        trace("send");
         authSend();
+        trace("response");
         if (!authResponse()) return false;
+        trace("send");
         reqSend();
+        trace("request2");
         if (!reqResponse()) return false;
+        trace("req3");
         return true;
     }
     private function reqSend()
@@ -31,10 +36,11 @@ class Proxy
         bytes.set(2,0x00); //Reserved
         bytes.set(3,0x01); //address type of following address (ipv4 address,domainname,ipv6 address)
 
-        var i = ipv4(bytes,4,new Host(host).toString());
+        var i = ipv4(bytes,4,new Host(host).toString()); //ip 4
 
-        bytes.set(i++,port >> 8);
+        bytes.set(i++,port >> 8); //port 2
         bytes.set(i++,port & 0xff);
+        //total 10
         socket.output.write(bytes);
     }
     private function reqResponse():Bool
@@ -92,7 +98,7 @@ class Proxy
             trace("no acceptable authentication method offered");
             false;
             default: 
-            trace("cauth not found");
+            trace('cauth not found $cauth');
             false;
         }
     }

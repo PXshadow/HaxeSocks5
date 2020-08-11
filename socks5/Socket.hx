@@ -20,7 +20,7 @@ class Socket extends UpgradeSocket
             super.connect(new Host(PROXY.host),PROXY.port);
             proxy = new Proxy(this,host.host,port);
             trace("start proxy request");
-            if (!proxy.request()) return;
+            if (!proxy.request()) throw "proxy request failed";
         }else{
             super.connect(host, port);
         }

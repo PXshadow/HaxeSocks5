@@ -35,9 +35,18 @@ class ProxyServer
         if (!request()) throw "request failed";
         while (true)
         {
-            update();
-            //Sys.sleep(1/10000000);
+            try {
+                update();
+            }catch(e:Dynamic)
+            {
+                break;
+            }
+            Sys.sleep(1/100);
         }
+        trace("CLOSE!");
+        socket.close();
+        client.close();
+        server.close();
     }
     private function request():Bool
     {
@@ -53,14 +62,13 @@ class ProxyServer
     public function update()
     {
         try {
-            //trace("i " + client.input.readByte());
-            socket.output.writeByte(client.input.readByte());
+            client.output.writeInput(socket.input);
         }catch(e:Dynamic)
         {
             if (e != Error.Blocked) throw 'failed client $e';
         }
         try {
-            client.output.writeByte(socket.input.readByte());
+            socket.output.writeInput(client.input);
         }catch(e:Dynamic)
         {
             if (e != Error.Blocked) throw 'failed socket $e';

@@ -13,7 +13,7 @@ class ThreadServer
     {
         var socket = new sys.ssl.Socket();
         var cert = sys.ssl.Certificate.loadFile("server/rootcert.pem");
-        trace("cert " + cert.commonName);
+        //trace("cert " + cert.commonName);
         socket.setCA(cert);
         socket.setCertificate(cert,sys.ssl.Key.loadFile("server/rootkey.pem"));
         socket.setHostname("example.com");

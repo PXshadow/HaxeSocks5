@@ -31,11 +31,12 @@ class Test {
 			ThreadProxyServer.create(false,false);
 			socket(false,true);
 		});
-		/*test("ssl_socket -> proxy -> ssl",function()
+		test("ssl_socket -> proxy -> tcp",function()
 		{
 			ThreadServer.createSSLServer();
+			ThreadProxyServer.create(true,false);
 			socket(true,true);
-		});*/
+		});
 		trace('tests: $tests_sucessful/$tests sucessful');
 		if (tests != tests_sucessful) throw "a test failed";
 	}

@@ -50,7 +50,7 @@ class Proxy
         {
             case 0x00:
             //succeeded
-            socket.input.readBytes(Bytes.alloc(8),0,8);
+            socket.input.read(8);
             return true;
             case 0x01: trace("general SOCKS server failure");
             case 0x02: trace("connection not allowed by ruleset");

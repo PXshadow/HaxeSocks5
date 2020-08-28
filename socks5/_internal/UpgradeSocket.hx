@@ -1,6 +1,5 @@
 package socks5._internal;
 import haxe.io.Error;
-import sys.net.Socket.SocketHandle;
 import sys.net.Host;
 import haxe.io.Bytes;
 import haxe.io.BytesData;
@@ -10,6 +9,7 @@ import cpp.NativeSsl;
 import cpp.Lib;
 #elseif neko
 import neko.Lib;
+import sys.net.Socket.SocketHandle;
 #end
 
 private class SocketInput extends haxe.io.Input {
@@ -191,7 +191,7 @@ class UpgradeSocket extends sys.ssl.Socket
 		
 	}
 	override function handshake() {
-		trace("handshake");
+		trace("handshake upgradeSocket");
 		super.handshake();
 	}
 	override function connect(host:Host, port:Int) {
@@ -213,13 +213,12 @@ class UpgradeSocket extends sys.ssl.Socket
 			} catch (e:Dynamic) {
 				Lib.rethrow(e);
 			}
-			#elseif hl
-			}
 			#end
 	}
 	#if neko public function buildSSLConfig(server:Bool) {return buildSSLContext(server);}#end
 	#if (hl || hashlink) public function buildSSLConfig(server:Bool) {return buildConfig(server);}#end
 	#if !hl
+
 	override function read():String {
 		#if neko var b:String; #end
 		#if cpp var b:BytesData; #end

@@ -9,23 +9,25 @@ class Server extends Tcp
 {
     public static function main()
     {
-        var args = Sys.args();
-        new Server();
+        var server = new Server();
+        server.update(false);
     }
     var loop:Loop;
-    public function new(port:Int=8000)
+    public function new(port:Int=1080)
     {
         loop = Loop.getDefault();
         super(loop);
         noDelay(true);
-        bind(new Host("0.0.0.0"),8000);
+        bind(new Host("0.0.0.0"),port);
         Sys.println('Socks5 proxy server started on $port');
         listen(100,function()
         {
             var stream = accept();
+            trace("connected");
             var int:Int = 0;
             stream.readStart(function(data:Bytes)
             {
+                if (data == null) return;
                 switch (int)
                 {
                     case 0: //greeting 
@@ -40,7 +42,9 @@ class Server extends Tcp
                     var out = Bytes.alloc(2);
                     out.set(0,version);
                     out.set(1,method);
+                    trace("response to greeting sent");
                     stream.write(out);
+                    stream.write(Bytes.ofString("hello world\n \n \n \n"));
                     default:
                     trace("more data "  + data);
                     return;
@@ -48,7 +52,10 @@ class Server extends Tcp
                 int++;
             });
         });
-        loop.run(Default);
+    }
+    public inline function update(blocking:Bool=true)
+    {
+        loop.run(blocking ? Default : NoWait);
     }
 }
 #end

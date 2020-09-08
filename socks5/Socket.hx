@@ -8,6 +8,8 @@ class Socket extends UpgradeSocket
     public static var PROXY:{host:String, port:Int, auth:{user:String, pass:String}} = null;
     public var secure:Bool = true; //after protocol auth, should upgrade socket to ssl
     var proxy:Proxy;
+    var blocking:Bool = true;
+    public var connected:Bool = false;
     public function new()
     {
         super();
@@ -18,11 +20,19 @@ class Socket extends UpgradeSocket
         {
             hostname = host.host;
             super.connect(new Host(PROXY.host),PROXY.port);
-            proxy = new Proxy(input,output,host.host,port);
-            trace("start proxy request");
-            if (!proxy.request()) throw "proxy request failed";
+            proxy = new Proxy(this,host.host,port);
         }else{
             super.connect(host, port);
         }
+    }
+    override function setBlocking(b:Bool) {
+        blocking = b;
+        super.setBlocking(b);
+    }
+    public function auth():Bool
+    {
+        if (proxy == null) return true;
+        if (!connected && !proxy.auth()) return false;
+        return connected = true;
     }
 }

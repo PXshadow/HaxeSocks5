@@ -1,31 +1,30 @@
 package socks5;
 
+import haxe.io.Input;
+import haxe.io.Output;
 import haxe.io.Bytes;
 import sys.net.Socket;
 import sys.net.Host;
 
 class Proxy
 {
-    var socket:Socket;
+    var output:Output;
+    var input:Input;
     var host:String;
     var port:Int;
-    public function new(socket:Socket,host:String,port:Int)
+    public function new(input:Input,output:Output,host:String,port:Int)
     {
-        this.socket = socket;
+        this.output = output;
+        this.input = input;
         this.host = host;
         this.port = port;
     }
     public function request():Bool
     {
-        trace("send");
         authSend();
-        trace("response");
         if (!authResponse()) return false;
-        trace("send");
         reqSend();
-        trace("request2");
         if (!reqResponse()) return false;
-        trace("req3");
         return true;
     }
     private function reqSend()
@@ -41,16 +40,16 @@ class Proxy
         bytes.set(i++,port >> 8); //port 2
         bytes.set(i++,port & 0xff);
         //total 10
-        socket.output.write(bytes);
+        output.write(bytes);
     }
     private function reqResponse():Bool
     {
-        socket.input.readByte(); //version
-        switch (socket.input.readByte())
+        input.readByte(); //version
+        switch (input.readByte())
         {
             case 0x00:
             //succeeded
-            socket.input.read(8);
+            input.read(8);
             return true;
             case 0x01: trace("general SOCKS server failure");
             case 0x02: trace("connection not allowed by ruleset");
@@ -79,12 +78,12 @@ class Proxy
         bytes.set(0,0x05); //SOCKS version number
         bytes.set(1,0x02); //0x01 for digest (SASL and DIGEST-MD5 for XMPP)
         bytes.set(2,0x00); //Authentication methods, 1 byte per method supported
-        socket.output.write(bytes);
+        output.write(bytes);
     }
     private function authResponse():Bool
     {
-        socket.input.readByte(); //version
-        var cauth = socket.input.readByte();//chosen authentication method
+        input.readByte(); //version
+        var cauth = input.readByte();//chosen authentication method
         return switch (cauth)
         {
             case 0x00:

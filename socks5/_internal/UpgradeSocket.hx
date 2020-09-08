@@ -10,6 +10,8 @@ import cpp.Lib;
 #elseif neko
 import neko.Lib;
 import sys.net.Socket.SocketHandle;
+#elseif hl
+import sys.net.Socket.SocketHandle;
 #end
 
 private class SocketInput extends haxe.io.Input {
@@ -213,7 +215,12 @@ class UpgradeSocket extends sys.ssl.Socket
 			} catch (e:Dynamic) {
 				Lib.rethrow(e);
 			}
-			#end
+			#else
+		}catch(e:Dynamic)
+		{
+
+		}
+		#end
 	}
 	#if neko public function buildSSLConfig(server:Bool) {return buildSSLContext(server);}#end
 	#if (hl || hashlink) public function buildSSLConfig(server:Bool) {return buildConfig(server);}#end
